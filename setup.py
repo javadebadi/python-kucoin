@@ -53,7 +53,7 @@ setup(
     version=find_version("kucoin", "__init__.py"),
     packages=find_packages(),
     description='Kucoin REST API v2 python implementation',
-    url='https://github.com/sammchardy/python-kucoin',
+    url='https://github.com/javadebadi/python-kucoin',
     author='Sam McHardy',
     license='MIT',
     author_email='',
