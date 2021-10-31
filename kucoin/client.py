@@ -1981,3 +1981,30 @@ class Client(object):
             path = 'bullet-private'
 
         return self._post(path, signed)
+
+    @staticmethod
+    def _kline_type_duration(kline_type='5min'):
+        """Returns seconds corresponding to kline_type
+        
+        :param kline_type: type of symbol, type of candlestick patterns: 1min, 3min, 5min, 15min, 30min, 1hour, 2hour,
+                           4hour, 6hour, 8hour, 12hour, 1day, 1week
+        :type kline_type: string
+        
+        :returns: seconds (int)
+
+        """
+        MINUTE = 60
+        HOUR = 60*MINUTE
+        DAY = 24*HOUR
+        WEEK = 7*DAY
+        MONTH = 30*DAY
+
+        if kline_type.endswith('min'):
+            seconds = int(kline_type.split('min')[0])*MINUTE
+        elif kline_type.endswith('hour'):
+            seconds = int(kline_type.split('hour')[0])*HOUR
+        elif kline_type.endswith('day'):
+            seconds = int(kline_type.split('day')[0])*DAY
+        elif kline_type.endswith('week'):
+            seconds = int(kline_type.split('week')[0])*WEEK
+        return seconds
