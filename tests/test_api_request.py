@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from kucoin.client import Client
-from kucoin.exceptions import KucoinAPIException, KucoinRequestException, MarketOrderException, LimitOrderException
+from py_kucoin_extra.client import Client
+from py_kucoin_extra.exceptions import KucoinAPIException, KucoinRequestException, MarketOrderException, LimitOrderException
 import pytest
 import requests_mock
 

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import time
 from datetime import datetime
+import logging
 
 import requests
 
@@ -2008,3 +2009,161 @@ class Client(object):
         elif kline_type.endswith('week'):
             seconds = int(kline_type.split('week')[0])*WEEK
         return seconds
+
+    @staticmethod
+    def _max_time_steps(kline_type='5min'):
+        """Returns max time_steps for give kline_type
+        
+        The maximum time_steps is a maximum difference (in seconds)
+        between start and end time, for which we can get all kline data
+        in the interval for give kline_type. Maximum number of kucoin
+        kline data which can be get is 1500. Thus the max_time_steps
+        is equal to kline_type seconds times 1500.
+        
+        :param kline_type: type of symbol, type of candlestick patterns: 1min, 3min, 5min, 15min, 30min, 1hour, 2hour,
+                           4hour, 6hour, 8hour, 12hour, 1day, 1week
+        :type kline_type: string
+        
+        :returns: seconds (int)
+
+        """
+        seconds = Client._kline_type_duration(kline_type)
+        return seconds*1500
+
+    @staticmethod
+    def _transform_kline_to_dict(kline, kline_type=None, symbol=None):
+        """Returns a dictionary for kline get from API.
+        
+        Returns a dictionary with correct key and values for individual
+        kline or candlestick data.
+        
+        :returns: kline_dict (dict)
+        
+        """
+        kline_dict = {
+            "start_unix_time": kline[0],
+            "open": float(kline[1]),
+            "close": float(kline[2]),
+            "high": float(kline[3]),
+            "low": float(kline[4]),
+            "amount": float(kline[5]),
+            "volume": float(kline[6]),
+            "kline_type": kline_type,
+            "symbol": symbol,
+            "interval": kline_type,
+        }
+        return kline_dict
+
+    @staticmethod
+    def _transform_kline_list_to_kline_dict(kline_list, kline_type=None, symbol=None):
+        """Returns the list of kline dicts
+        
+        Kline data which get from API does not have key and value. In python, usually
+        it is better to have dictionary. The goal of this method is to convert list of
+        kline data to list of kline dictionaries.
+        
+        :param kline_list: list of kline data where each item in list is iteself a list
+        :type kline_list: list
+        
+        :param kline_type: type of symbol, type of candlestick patterns: 1min, 3min, 5min, 15min, 30min, 1hour, 2hour,
+                            4hour, 6hour, 8hour, 12hour, 1day, 1week
+        :type kline_type: string
+        
+        :returns: results (list)
+        
+        """
+        results = list(map(Client._transform_kline_to_dict, kline_list))
+        if kline_type is not None:
+            for result in results:
+                result['kline_type'] = kline_type
+                result['interval'] = kline_type
+        if symbol is not None:
+            for result in results:
+                result['symbol'] = symbol
+        return results
+
+    def get_kline_full_data_starting_from(self, symbol, start, kline_type='5min', as_dict=True):
+        """Gets list of all data from API starting from a point in time.
+        
+        :param symbol: the symbol
+        :type symbol: string
+
+        :param start: the start time where the data from that point is needed to be get from API. It is a unix time.
+        :type start: int
+        
+        :param kline_type: type of symbol, type of candlestick patterns: 1min, 3min, 5min, 15min, 30min, 1hour, 2hour,
+                                4hour, 6hour, 8hour, 12hour, 1day, 1week
+        :type kline_type: string
+        
+        :param as_dict: if it is true, it will return list of dictionaries (transformed kline data to kline dict)
+        :type as_dict: bool
+        
+        :returns: ApiResponse
+        
+        """
+        all_data = []  # an empty list to store data
+        last_time = int(time.time())  # get the current unix time
+        time_steps = Client._max_time_steps(kline_type)  # time steps to find end time for each start time
+        while start <= last_time:  # until now, we must get the available data from API
+            try:
+                end = start + time_steps  # find the end time to use as argument in get_kline_data
+                data = self.get_kline_data(symbol, kline_type=kline_type, start=start, end=end)  # get data from API
+                logging.info(f"current all data_size = {len(all_data)}")
+            except KucoinAPIException:
+                logging.warning("KucoinRequestException Raised ... try to continue 1 seconds later")
+                time.sleep(1)
+                continue
+            except:
+                logging.warning("general exception Raised ... try to continue 1 seconds later")
+                time.sleep(1)
+                continue            
+            start = end  # update the star time for next batch of data that must be get
+            all_data.extend(data)  # add new data to `all_data` list
+        # decide if we must return list of kline data or list of kline dict
+        if as_dict is True:
+            return Client._transform_kline_list_to_kline_dict(kline_list=all_data, kline_type=kline_type, symbol=symbol)
+        else:
+            return all_data
+
+    def get_kline_full_data(self, symbol, kline_type='5min', as_dict=True):
+        """Gets list of all historial data from API.
+
+        :param symbol: the symbol
+        :type symbol: string
+
+        :param kline_type: type of symbol, type of candlestick patterns: 1min, 3min, 5min, 15min, 30min, 1hour, 2hour,
+                                4hour, 6hour, 8hour, 12hour, 1day, 1week
+        :type kline_type: string
+        
+        :param as_dict: if it is true, it will return list of dictionaries (transformed kline data to kline dict)
+        :type as_dict: bool
+        
+        :returns: ApiResponse
+        
+        """
+        all_data = []  # an empty list to store data
+        end = int(time.time())  # get the current unix time
+        time_steps = Client._max_time_steps(kline_type)  # time steps to find end time for each start time
+        while True:
+            try:
+                start = end - time_steps  # find the start unix time for current batch of data
+                data = self.get_kline_data(symbol, kline_type=kline_type, start=start, end=end)
+                if not data:  # break when no data left to get from server
+                    break
+                logging.info(f"current all data_size = {len(all_data)}")
+            except KucoinAPIException:
+                logging.warning("KucoinRequestException Raised ... try to continue 1 seconds later")
+                time.sleep(1)
+                continue
+            except:
+                logging.warning("general exception Raised ... try to continue 1 seconds later")
+                time.sleep(1)
+                continue
+            end = start  # update the end of next batch of data that must be get
+            all_data.extend(data)  # add new data to `all_data` list
+        # decide if we must return list of kline data or list of kline dict
+        if as_dict is True:
+            return Client._transform_kline_list_to_kline_dict(kline_list=all_data, kline_type=kline_type, symbol=symbol)
+        else:
+            return all_data
+            
