@@ -2082,6 +2082,20 @@ class Client(object):
                 result['symbol'] = symbol
         return results
 
+    def get_most_recent_price(self, symbol: str) -> float:
+        """Returns the most recent close price of the symbol
+
+        :param symbol: the symbol
+        :type symbol: string
+
+        :returns: float
+
+        """
+        data = self.get_kline_data(symbol, start=int(time.time() - 30 * 60 - 1), kline_type='30min')
+        if not data:
+            raise ValueError("No recent price found")
+        return float(data[:1][0][2])
+
     def get_kline_full_data_starting_from(self, symbol, start, kline_type='5min', as_dict=True):
         """Gets list of all data from API starting from a point in time.
         

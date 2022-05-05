@@ -13,7 +13,7 @@ setup(
     description='Kucoin REST API v2 python implementation',
     name="py_kucoin_extra",
     packages=find_packages(include=["py_kucoin_extra", "py_kucoin_extra.*"]),
-    version="1.2.0",
+    version="1.2.1",
     install_requires=['requests', 'websockets'],
     python_requires='>=3.7',
     license='MIT',
